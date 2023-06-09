@@ -305,7 +305,7 @@ static int exynos8895_devfreq_mif_init_freq_table(struct exynos_devfreq_data *da
 	data->devfreq_profile.initial_freq = cal_dfs_get_boot_freq(data->dfs_id);
 	data->devfreq_profile.suspend_freq = cal_dfs_get_resume_freq(data->dfs_id);
 
-	ret = exynos8895_mif_constraint_parse(data, min_freq, max_freq);
+	ret = exynos8895_mif_constraint_parse(data, data->min_freq, data->max_freq);
 	if (ret) {
 		dev_err(data->dev, "failed to parse constraint table\n");
 		return -EINVAL;
