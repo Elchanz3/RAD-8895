@@ -1,0 +1,28 @@
+Script started on 2023-12-12 08:33:06-03:00 [TERM="xterm-256color" TTY="/dev/pts/1" COLUMNS="80" LINES="24"]
+make[1]: Entrando no diretório '/home/chanz22/Documentos/GitHub/RAD-8895/out'
+/home/chanz22/Documentos/GitHub/RAD-8895/Makefile:714: Cannot use CONFIG_CC_STACKPROTECTOR_STRONG: -fstack-protector-strong not supported by compiler
+  GEN     ./Makefile
+scripts/kconfig/conf  --silentoldconfig Kconfig
+Kconfig:15:warning: environment variable ANDROID_MAJOR_VERSION undefined
+/home/chanz22/Documentos/GitHub/RAD-8895/Makefile:714: Cannot use CONFIG_CC_STACKPROTECTOR_STRONG: -fstack-protector-strong not supported by compiler
+INFO: CC is clang
+  CHK     include/config/kernel.release
+  GEN     ./Makefile
+  UPD     include/config/kernel.release
+  CHK     include/generated/uapi/linux/version.h
+  CHK     include/generated/utsrelease.h
+  UPD     include/generated/utsrelease.h
+  Using .. as source for kernel
+  CC      scripts/mod/empty.o
+  CC      scripts/mod/devicetable-offsets.s
+clang-9clang-9: : [0;1;31m[0;1;31merrorerror: : [0m[0mno such file or directory: 'CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE'no such file or directory: 'CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE'[0m[0m
+
+make[3]: *** [../scripts/Makefile.build:267: scripts/mod/empty.o] Erro 1
+make[3]: ** Esperando que outros processos terminem.
+make[3]: *** [../scripts/Makefile.build:153: scripts/mod/devicetable-offsets.s] Erro 1
+make[2]: *** [../scripts/Makefile.build:411: scripts/mod] Erro 2
+make[1]: *** [/home/chanz22/Documentos/GitHub/RAD-8895/Makefile:588: scripts] Erro 2
+make[1]: Saindo do diretório '/home/chanz22/Documentos/GitHub/RAD-8895/out'
+make: *** [Makefile:150: sub-make] Erro 2
+
+Script done on 2023-12-12 08:33:08-03:00 [COMMAND_EXIT_CODE="2"]
