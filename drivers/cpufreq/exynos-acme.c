@@ -1196,6 +1196,41 @@ static int init_dm(struct exynos_cpufreq_domain *domain,
 	return register_exynos_dm_freq_scaler(domain->dm_type, dm_scaler);
 }
 
+static unsigned long arg_cpu_max_c1 = 2002000;
+
+static int __init cpufreq_read_cpu_max_c1(char *cpu_max_c1)
+{
+	unsigned long ui_khz;
+	int ret;
+
+	ret = kstrtoul(cpu_max_c1, 0, &ui_khz);
+	if (ret)
+		return -EINVAL;
+
+	arg_cpu_max_c1 = ui_khz;
+	printk("cpu_max_c1=%lu\n", arg_cpu_max_c1);
+	return ret;
+}
+__setup("cpu_max_c1=", cpufreq_read_cpu_max_c1);
+
+unsigned long arg_cpu_max_c2 = 2808000;
+
+static __init int cpufreq_read_cpu_max_c2(char *cpu_max_c2)
+{
+	unsigned long ui_khz;
+	int ret;
+
+	ret = kstrtoul(cpu_max_c2, 0, &ui_khz);
+	if (ret)
+		return -EINVAL;
+
+	arg_cpu_max_c2 = ui_khz;
+	printk("cpu_max_c2=%lu\n", arg_cpu_max_c2);
+	return ret;
+}
+__setup("cpu_max_c2=", cpufreq_read_cpu_max_c2);
+
+
 static __init int init_domain(struct exynos_cpufreq_domain *domain,
 					struct device_node *dn)
 {
@@ -1207,17 +1242,24 @@ static __init int init_domain(struct exynos_cpufreq_domain *domain,
 	/* Initialize frequency scaling */
 	domain->max_freq = cal_dfs_get_max_freq(domain->cal_id);
 	domain->min_freq = cal_dfs_get_min_freq(domain->cal_id);
-
+	
+	
 	/*
 	 * If max-freq property exists in device tree, max frequency is
 	 * selected to smaller one between the value defined in device
 	 * tree and CAL. In case of min-freq, min frequency is selected
 	 * to bigger one.
 	 */
+#ifndef CONFIG_EXYNOS_HOTPLUG_GOVERNOR
 	if (!of_property_read_u32(dn, "max-freq", &val))
 		domain->max_freq = min(domain->max_freq, val);
+#endif
 	if (!of_property_read_u32(dn, "min-freq", &val))
 		domain->min_freq = max(domain->min_freq, val);
+#ifdef CONFIG_SEC_PM
+	if (!of_property_read_u32(dn, "max-freq", &val))
+		domain->max_usable_freq = min(domain->max_freq, val);
+#endif
 
 	domain->boot_freq = cal_dfs_get_boot_freq(domain->cal_id);
 	domain->resume_freq = cal_dfs_get_resume_freq(domain->cal_id);
