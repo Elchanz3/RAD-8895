@@ -542,13 +542,13 @@
 			dm-type = <DM_CPU_CL1>;
 
 			min-freq = <741000>;
-			max-freq = <2652000>;
+			max-freq = <2808000>;
 
 			/* PM QoS Class ID*/
 			pm_qos-min-class = <5>;
 			pm_qos-max-class = <6>;
 			pm_qos-jigbooting = <1469000>;
-			pm_qos-booting = <2314000>;
+			pm_qos-booting = <2808000>;
 
 			user-default-qos = <858000>;
 
@@ -561,11 +561,11 @@
 					const-type = <CONSTRAINT_MIN>;
 					dm-type = <DM_MIF>;
 						/*  cpu     mif  */
-					table = < 2808000 1794000
-						  2704000 1794000
-						  2652000 1794000
-						  2574000 1794000
-						  2496000 1794000
+					table = < 2808000 2093000
+						  2704000 2093000
+						  2652000 2093000
+						  2574000 2093000
+						  2496000 2093000
 						  2314000 1794000
 						  2158000 1794000
 						  2002000 1794000
