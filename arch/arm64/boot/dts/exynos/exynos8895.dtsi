@@ -5148,6 +5148,10 @@ domain@0 {
 					  >;
 			};
 
+        	max-limit {
+			ctrl-type = <PM_QOS_MAX_LIMIT>;
+			execution-mode = <AARCH64_MODE>;
+				  /* big	 lit */
 				table = <
 					2808000 2002000
 					2704000 1898000
