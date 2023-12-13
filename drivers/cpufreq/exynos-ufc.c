@@ -22,6 +22,10 @@
 
 #include "exynos-acme.h"
 
+#include <linux/sysfs_helpers.h>
+
+#include <soc/samsung/cal-if.h>
+
 /*********************************************************************
  *                          SYSFS INTERFACES                         *
  *********************************************************************/
@@ -59,6 +63,124 @@ static ssize_t show_cpufreq_table(struct kobject *kobj,
 	count += snprintf(&buf[count - 1], 2, "\n");
 
 	return count - 1;
+}
+
+int exynos_cpufreq_update_volt_table()
+{
+	struct list_head *domains = get_domain_list();
+	struct exynos_cpufreq_domain *domain;
+	unsigned int index;
+	unsigned long *table;
+	unsigned int *volt_table;
+	struct device *dev;
+	int ret = 0;
+
+	list_for_each_entry_reverse(domain, domains, list) {
+		table = kzalloc(sizeof(unsigned long) * domain->table_size, GFP_KERNEL);
+		if (!table)
+			return -ENOMEM;
+
+		volt_table = kzalloc(sizeof(unsigned int) * domain->table_size, GFP_KERNEL);
+		if (!volt_table) {
+			ret = -ENOMEM;
+			goto free_table;
+		}
+
+		cal_dfs_get_rate_table(domain->cal_id, table);
+		cal_dfs_get_asv_table(domain->cal_id, volt_table);
+
+		for (index = 0; index < domain->table_size; index++) {
+			if (table[index]) {
+				struct cpumask mask;
+				/* Add OPP table to first cpu of domain */
+				dev = get_cpu_device(cpumask_first(&domain->cpus));
+				if (!dev)
+					continue;
+				cpumask_and(&mask, &domain->cpus, cpu_online_mask);
+				dev_pm_opp_add(get_cpu_device(cpumask_first(&mask)),
+						table[index] * 1000, volt_table[index]);
+			}
+		}
+
+		kfree(volt_table);
+
+	free_table:
+		kfree(table);
+	}
+
+	return ret;
+}
+
+#define CPUCL0_DVFS_TYPE 2
+
+static ssize_t show_cpucl0volt_table(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	return fvmap_print(buf, CPUCL0_DVFS_TYPE);
+}
+
+static ssize_t store_cpucl0volt_table(struct kobject *kobj,
+				struct kobj_attribute *attr, const char *buf,
+				size_t count)
+{
+	struct list_head *domains = get_domain_list();
+	struct exynos_cpufreq_domain *domain;
+
+	list_for_each_entry_reverse(domain, domains, list) {
+		int i, tokens;
+		int t[domain->table_size-1];
+
+		if (domain->id == 0) {
+			if ((tokens = read_into((int*)&t, domain->table_size-1, buf, count)) < 0)
+				return -EINVAL;
+
+			if (tokens == 2)
+				fvmap_patch(CPUCL0_DVFS_TYPE, t[0], t[1]);
+			else
+				for (i = 0; i < tokens; i++)
+					fvmap_patch(CPUCL0_DVFS_TYPE, domain->freq_table[i].frequency, t[i]);
+
+			exynos_cpufreq_update_volt_table();
+		}
+	}
+
+	return count;
+}
+
+#define CPUCL1_DVFS_TYPE 3
+
+static ssize_t show_cpucl1volt_table(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buf)
+{
+	return fvmap_print(buf, CPUCL1_DVFS_TYPE);
+}
+
+static ssize_t store_cpucl1volt_table(struct kobject *kobj,
+				struct kobj_attribute *attr, const char *buf,
+				size_t count)
+{
+	struct list_head *domains = get_domain_list();
+	struct exynos_cpufreq_domain *domain;
+
+	list_for_each_entry_reverse(domain, domains, list) {
+		int i, tokens;
+		int t[domain->table_size-1];
+
+		if (domain->id == 1) {
+			if ((tokens = read_into((int*)&t, domain->table_size-1, buf, count)) < 0)
+				return -EINVAL;
+
+			if (tokens == 2)
+				fvmap_patch(CPUCL1_DVFS_TYPE, t[0], t[1]);
+			else
+				for (i = 0; i < tokens; i++)
+					fvmap_patch(CPUCL1_DVFS_TYPE, domain->freq_table[i].frequency, t[i]);
+
+			exynos_cpufreq_update_volt_table();
+		}
+	}
+
+	return count;
 }
 
 static ssize_t show_cpufreq_min_limit(struct kobject *kobj,
@@ -536,65 +658,12 @@ static ssize_t store_execution_mode_change(struct kobject *kobj, struct attribut
 	return count;
 }
 
-static ssize_t store_cpu_lit_volt(struct kobject *kobj, struct attribute *attr, const char *buf, size_t count)
-{
-	int id = 3; /* dvfs_cpucl1 */
-	unsigned int rate, volt;
-
-	if (sscanf(buf, "%u %u", &rate, &volt) == 2) {
-		if ((volt < 450000) || (volt > 1400000))
-			goto err;
-		update_fvmap(id, rate, volt);
-		pr_info("%s: updated DVFS: dvfs_cpucl1 - rate: %u kHz - volt: %u uV\n", __func__, rate, volt);
-		return count;
-	}
-
-err:
-	return -EINVAL;
-}
-
-static ssize_t store_cpu_big_volt(struct kobject *kobj, struct attribute *attr, const char *buf, size_t count)
-{
-	int id = 2; /* dvfs_cpucl0 */
-	unsigned int rate, volt;
-
-	if (sscanf(buf, "%u %u", &rate, &volt) == 2) {
-		if ((volt < 450000) || (volt > 1400000))
-			goto err;
-		update_fvmap(id, rate, volt);
-		pr_info("%s: updated DVFS: dvfs_cpucl0 - rate: %u kHz - volt: %u uV\n", __func__, rate, volt);
-		return count;
-	}
-
-err:
-	return -EINVAL;
-}
-
-static ssize_t store_update_dvfs_table(struct kobject *kobj, struct attribute *attr, const char *buf, size_t count)
-{
-	unsigned int id, rate, volt;
-
-	if (sscanf(buf, "%u %u %u", &id, &rate, &volt) == 3) {
-		update_fvmap(id, rate, volt);
-		pr_info("%s: updated DVFS id: %u - rate: %u kHz - volt: %u uV\n", __func__, id, rate, volt);
-		return count;
-	}
-
-	return -EINVAL;
-}
-
-static ssize_t store_print_dvfs_table(struct kobject *kobj, struct attribute *attr, const char *buf, size_t count)
-{
-	if (sysfs_streq(buf, "true") || sysfs_streq(buf, "1")) {
-		print_fvmap();
-		return count;
-	}
-
-	return -EINVAL;
-}
-
 static struct global_attr cpufreq_table =
 __ATTR(cpufreq_table, 0444, show_cpufreq_table, NULL);
+static struct kobj_attribute cpucl0volt_table =
+__ATTR(cpucl0volt_table, 0644 , show_cpucl0volt_table, store_cpucl0volt_table);
+static struct kobj_attribute cpucl1volt_table =
+__ATTR(cpucl1volt_table, 0644 , show_cpucl1volt_table, store_cpucl1volt_table);
 static struct global_attr cpufreq_min_limit =
 __ATTR(cpufreq_min_limit, 0644,
 		show_cpufreq_min_limit, store_cpufreq_min_limit);
@@ -607,17 +676,17 @@ __ATTR(cpufreq_max_limit, 0644,
 static struct global_attr execution_mode_change =
 __ATTR(execution_mode_change, 0644,
 		show_execution_mode_change, store_execution_mode_change);
-static struct global_attr sysfs_cpu_lit_volt =
-__ATTR(cpu_lit_volt, 0600,
-		NULL, store_cpu_lit_volt);
-static struct global_attr sysfs_cpu_big_volt =
-__ATTR(cpu_big_volt, 0600,
-		NULL, store_cpu_big_volt);
 
 static __init void init_sysfs(void)
 {
 	if (sysfs_create_file(power_kobj, &cpufreq_table.attr))
 		pr_err("failed to create cpufreq_table node\n");
+		
+	if (sysfs_create_file(power_kobj, &cpucl0volt_table.attr))
+		pr_err("failed to create cpu cluster0 volt_table node\n");
+
+	if (sysfs_create_file(power_kobj, &cpucl1volt_table.attr))
+		pr_err("failed to create cpu cluster1 volt_table node\n");
 
 	if (sysfs_create_file(power_kobj, &cpufreq_min_limit.attr))
 		pr_err("failed to create cpufreq_min_limit node\n");
@@ -631,11 +700,6 @@ static __init void init_sysfs(void)
 	if (sysfs_create_file(power_kobj, &execution_mode_change.attr))
 		pr_err("failed to create cpufreq_max_limit node\n");
 
-	if (sysfs_create_file(power_kobj, &sysfs_cpu_lit_volt.attr))
-		pr_err("failed to create cpu_lit_volt node\n");
-
-	if (sysfs_create_file(power_kobj, &sysfs_cpu_big_volt.attr))
-		pr_err("failed to create cpu_big_volt node\n");
 }
 
 static int parse_ufc_ctrl_info(struct exynos_cpufreq_domain *domain,
